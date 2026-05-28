@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Payload Encoder</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            color: #00FF41;
+            font-family: "Courier New", Courier, monospace;
+            overflow: hidden;
+        }
+        
+        #matrixCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background-color: black;
+        }
+
+        #terminal {
+            position: absolute;
+            top: 10%;
+            left: 10%;
+            width: 80%;
+            height: 80%;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #00FF41;
+            box-shadow: 0 0 10px #00FF41;
+            z-index: 2;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        h1 {
+            font-size: 1.2em;
+            text-shadow: 0 0 5px #00FF41;
+            border-bottom: 1px dashed #00FF41;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input {
+            width: auto;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        input[type="text"], input[type="password"], input[type="number"] {
+            background: black;
+            color: #00FF41;
+            border: 1px solid #00FF41;
+            padding: 8px;
+            font-family: "Courier New", Courier, monospace;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 8px #00FF41;
+        }
+
+        button {
+            background: #00FF41;
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            font-family: "Courier New", Courier, monospace;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: white;
+            box-shadow: 0 0 10px white;
+        }
+
+        #output {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .sys-msg {
+            color: #00bfff;
+        }
+        
+        .agent-line {
+            color: #ff0055;
+            font-weight: bold;
+        }
+
+        .payload-string {
+            color: #00FF41;
+            transition: color 0.3s ease;
+        }
+        
+        .word-row {
+            padding-left: 20px;
+            margin-top: 5px;
+        }
+        
+        .word-label {
+            color: #00bfff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrixCanvas"></canvas>
+
+    <div id="terminal">
+        <h1>[SYSTEM] TR.ANDREW_HACKERGAME_ENCODER v5.3</h1>
+        
+        <div class="input-group">
+            <label for="plaintext">TARGET TRANSMISSION (Plain English):</label>
+            <input type="text" id="plaintext" placeholder="e.g. THE EAGLE FLIES AT MIDNIGHT">
+            <div class="checkbox-group">
+                <input type="checkbox" id="maskInput" onchange="toggleInputMask()">
+                <label for="maskInput">MASK TYPED INPUT (Hide from Projector)</label>
+            </div>
+        </div>
+        
+        <div class="input-group">
+            <label for="agentCount">HOW MANY AGENTS ARE PLAYING?</label>
+            <input type="number" id="agentCount" value="5" min="1" max="20">
+        </div>
+
+        <div class="checkbox-group" style="margin-top: 20px;">
+            <input type="checkbox" id="revealText">
+            <label for="revealText">AUTO-REVEAL PAYLOADS (DEFAULT: HIDDEN)</label>
+        </div>
+        
+        <button onclick="startEncode()">DISTRIBUTE ENCRYPTED PAYLOADS</button>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        // Ensure everything loads before running JS
+        document.addEventListener("DOMContentLoaded", function() {
+            
+            // --- MATRIX RAIN EFFECT ---
+            const canvas = document.getElementById('matrixCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()";
+            const fontSize = 16;
+            let columns = canvas.width / fontSize;
+            let drops = [];
+            for (let x = 0; x < columns; x++) { drops[x] = 1; }
+            
+            function drawMatrix() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#00FF41';
+                ctx.font = fontSize + 'px monospace';
+                
+                for (let i = 0; i < drops.length; i++) {
+                    const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+            }
+            setInterval(drawMatrix, 33);
+
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                columns = canvas.width / fontSize;
+                drops = [];
+                for (let x = 0; x < columns; x++) { drops[x] = 1; }
+            });
+
+            // --- ENCODER LOGIC ---
+            const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            
+            const encode_map_base = {
+                "A": "∆+1A", "B": "∆+2B", "C": "∆+3C", "D": "∆+4D", "E": "∆+5E",
+                "F": "Ω+6F", "G": "Ω+7A", "H": "Ω+8B", "I": "Ω+9C", "J": "Ω+0D",
+                "K": "Σ+1A", "L": "Σ+2B", "M": "Σ+3C", "N": "Σ+4D", "O": "Σ+5E",
+                "P": "Ψ+6F", "Q": "Ψ+7A", "R": "Ψ+8B", "S": "Ψ+9C", "T": "Ψ+0D",
+                "U": "Φ+1A", "V": "Φ+2B", "W": "Φ+3C", "X": "Φ+4D", "Y": "Φ+5E", "Z": "Φ+6F"
+            };
+
+            const revealCheckbox = document.getElementById('revealText');
+            revealCheckbox.addEventListener('change', function(e) {
+                const isRevealed = e.target.checked;
+                document.querySelectorAll('.payload-string').forEach(el => {
+                    el.textContent = isRevealed ? el.dataset.real : el.dataset.masked;
+                });
+            });
+            
+            // Attach toggleInputMask to window so HTML can see it
+            window.toggleInputMask = function() {
+                const inputField = document.getElementById('plaintext');
+                const maskCheckbox = document.getElementById('maskInput');
+                inputField.type = maskCheckbox.checked ? 'password' : 'text';
+            };
+
+            // Attach startEncode to window so HTML button can trigger it
+            window.startEncode = async function() {
+                const outputDiv = document.getElementById('output');
+                let plainText = document.getElementById('plaintext').value.trim().toUpperCase();
+                let agentCount = parseInt(document.getElementById('agentCount').value, 10);
+                
+                if (!plainText) return;
+                if (isNaN(agentCount) || agentCount < 1) agentCount = 1;
+
+                outputDiv.innerHTML = ""; 
+                
+                function printLine(text, className = '') {
+                    return new Promise(resolve => {
+                        const span = document.createElement('span');
+                        if (className) span.className = className;
+                        outputDiv.appendChild(span);
+                        
+                        let i = 0;
+                        function typeChar() {
+                            if (i < text.length) {
+                                span.textContent += text.charAt(i);
+                                i++;
+                                outputDiv.scrollTop = outputDiv.scrollHeight;
+                                setTimeout(typeChar, 10); 
+                            } else {
+                                outputDiv.appendChild(document.createElement('br'));
+                                resolve();
+                            }
+                        }
+                        typeChar();
+                    });
+                }
+
+                await printLine(`[!] INITIATING BATCH ENCRYPTION PROTOCOL...`, 'sys-msg');
+                
+                let displayTarget = document.getElementById('maskInput').checked ? "••••••••••••••••" : `"${plainText}"`;
+                await printLine(`[>] SPLITTING TARGET PHRASE ${displayTarget} ACROSS ${agentCount} AGENTS...`, 'sys-msg');
+                await printLine(` `);
+
+                let words = plainText.split(/\s+/);
+                
+                let agentAssignments = {};
+                for (let i = 1; i <= agentCount; i++) {
+                    agentAssignments[i] = [];
+                }
+
+                for (let i = 0; i < words.length; i++) {
+                    let assignedAgent = (i % agentCount) + 1; 
+                    agentAssignments[assignedAgent].push({ index: i + 1, text: words[i] });
+                }
+
+                for (let agentId = 1; agentId <= agentCount; agentId++) {
+                    let assignedWords = agentAssignments[agentId];
+                    if (assignedWords.length === 0) continue; 
+
+                    let shift = agentId - 1;
+                    let agentString = String(agentId).padStart(2, '0');
+                    
+                    await printLine(`[AGENT ${agentString}] :: ASSIGNED DATA PIECES`, 'agent-line');
+                    
+                    for (let w = 0; w < assignedWords.length; w++) {
+                        let originalWordIndex = assignedWords[w].index;
+                        let word = assignedWords[w].text;
+                        let encryptedCoords = [];
+                        
+                        for (let i = 0; i < word.length; i++) {
+                            let char = word.charAt(i);
+                            let targetIndex = ALPHABET.indexOf(char);
+                            if (targetIndex !== -1) {
+                                let baseIndex = (targetIndex - shift + 26) % 26;
+                                let baseLetter = ALPHABET.charAt(baseIndex);
+                                let coordinate = encode_map_base[baseLetter];
+                                encryptedCoords.push(coordinate);
+                            }
+                        }
+                        
+                        if (encryptedCoords.length === 0) continue; 
+                        
+                        let finalPayload = encryptedCoords.join(' ');
+                        let maskedPayload = encryptedCoords.map(() => "████").join(' ');
+                        let displayPayload = document.getElementById('revealText').checked ? finalPayload : maskedPayload;
+                        
+                        await new Promise(resolve => {
+                            const div = document.createElement('div');
+                            div.className = 'word-row';
+                            
+                            const labelSpan = document.createElement('span');
+                            labelSpan.className = 'word-label';
+                            labelSpan.textContent = `WORD ${originalWordIndex}: `;
+                            div.appendChild(labelSpan);
+                            
+                            const payloadSpan = document.createElement('span');
+                            payloadSpan.className = 'payload-string';
+                            payloadSpan.dataset.real = finalPayload;
+                            payloadSpan.dataset.masked = maskedPayload;
+                            div.appendChild(payloadSpan);
+                            
+                            outputDiv.appendChild(div);
+                            
+                            let charIndex = 0;
+                            function typeChar() {
+                                if (charIndex < displayPayload.length) {
+                                    payloadSpan.textContent += displayPayload.charAt(charIndex);
+                                    charIndex++;
+                                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                                    setTimeout(typeChar, 5); 
+                                } else {
+                                    resolve();
+                                }
+                            }
+                            typeChar();
+                        });
+                    }
+                    await printLine(` `); 
+                }
+                
+                await printLine(`[SYSTEM] FRAGMENTATION COMPLETE. TRANSMISSION READY.`, 'sys-msg');
+            };
+        });
+    </script>
+</body>
+</html>
