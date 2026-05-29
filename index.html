@@ -32,7 +32,7 @@
             left: 10%;
             width: 80%;
             height: 80%;
-            background: rgba(0, 0, 0, 0.85);
+            background: #000000;
             border: 1px solid #00FF41;
             box-shadow: 0 0 10px #00FF41;
             z-index: 2;
@@ -79,7 +79,7 @@
         }
 
         input[type="text"], input[type="password"], input[type="number"] {
-            background: black;
+            background: #111111;
             color: #00FF41;
             border: 1px solid #00FF41;
             padding: 8px;
@@ -101,12 +101,21 @@
             font-family: "Courier New", Courier, monospace;
             font-weight: bold;
             cursor: pointer;
-            margin-top: 10px;
         }
 
         button:hover {
             background: white;
             box-shadow: 0 0 10px white;
+        }
+        
+        .btn-export { background: #00bfff; margin-left: 10px; }
+        .btn-print { background: #ffffff; margin-left: 10px; }
+
+        .button-bar {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         #output {
@@ -115,29 +124,11 @@
             line-height: 1.5;
         }
 
-        .sys-msg {
-            color: #00bfff;
-        }
-        
-        .agent-line {
-            color: #ff0055;
-            font-weight: bold;
-        }
-
-        .payload-string {
-            color: #00FF41;
-            transition: color 0.3s ease;
-        }
-        
-        .word-row {
-            padding-left: 20px;
-            margin-top: 5px;
-        }
-        
-        .word-label {
-            color: #00bfff;
-            font-weight: bold;
-        }
+        .sys-msg { color: #00bfff; }
+        .agent-line { color: #ff0055; font-weight: bold; }
+        .payload-string { color: #00FF41; transition: color 0.3s ease; }
+        .word-row { padding-left: 20px; margin-top: 5px; }
+        .word-label { color: #00bfff; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -158,7 +149,7 @@
         
         <div class="input-group">
             <label for="agentCount">HOW MANY AGENTS ARE PLAYING?</label>
-            <input type="number" id="agentCount" value="5" min="1" max="20">
+            <input type="number" id="agentCount" value="15" min="1" max="30">
         </div>
 
         <div class="checkbox-group" style="margin-top: 20px;">
@@ -166,13 +157,16 @@
             <label for="revealText">AUTO-REVEAL PAYLOADS (DEFAULT: HIDDEN)</label>
         </div>
         
-        <button onclick="startEncode()">DISTRIBUTE ENCRYPTED PAYLOADS</button>
+        <div class="button-bar">
+            <button onclick="startEncode()">DISTRIBUTE ENCRYPTED PAYLOADS</button>
+            <button onclick="exportKeysToCSV()" class="btn-export">EXPORT CSV</button>
+            <button onclick="printKeycards()" class="btn-print">VIEW / PRINT CARDS (HTML)</button>
+        </div>
 
         <div id="output"></div>
     </div>
 
     <script>
-        // Ensure everything loads before running JS
         document.addEventListener("DOMContentLoaded", function() {
             
             // --- MATRIX RAIN EFFECT ---
@@ -213,7 +207,7 @@
                 for (let x = 0; x < columns; x++) { drops[x] = 1; }
             });
 
-            // --- ENCODER LOGIC ---
+            // --- ENCODER LOGIC (LOCKED BASELINE) ---
             const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
             
             const encode_map_base = {
@@ -232,14 +226,12 @@
                 });
             });
             
-            // Attach toggleInputMask to window so HTML can see it
             window.toggleInputMask = function() {
                 const inputField = document.getElementById('plaintext');
                 const maskCheckbox = document.getElementById('maskInput');
                 inputField.type = maskCheckbox.checked ? 'password' : 'text';
             };
 
-            // Attach startEncode to window so HTML button can trigger it
             window.startEncode = async function() {
                 const outputDiv = document.getElementById('output');
                 let plainText = document.getElementById('plaintext').value.trim().toUpperCase();
@@ -357,6 +349,115 @@
                 
                 await printLine(`[SYSTEM] FRAGMENTATION COMPLETE. TRANSMISSION READY.`, 'sys-msg');
             };
+
+            // Shared Variables for Exporters
+            const ALPHABET_CSV = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const rows = ["1A", "2B", "3C", "4D", "5E", "6F", "7A", "8B", "9C", "0D"];
+            const cols = ["∆", "Ω", "Σ", "Ψ", "Φ"];
+            const noiseChars = "0123456789"; 
+
+            // --- STAGGERED HEX CSV EXPORT FUNCTION ---
+            window.exportKeysToCSV = function() {
+                let agentCount = parseInt(document.getElementById('agentCount').value, 10);
+                if (isNaN(agentCount) || agentCount < 1) agentCount = 1;
+                
+                let csv = "\uFEFF"; 
+                
+                for (let a = 1; a <= agentCount; a++) {
+                    let shift = a - 1;
+                    csv += `[AGENT ${String(a).padStart(2, '0')}] KEYCARD\n`;
+                    csv += `KEY,∆,Ω,Σ,Ψ,Φ\n`;
+                    
+                    let grid = Array.from({length: 10}, () => Array(5).fill(""));
+                    
+                    for (let i = 0; i < 26; i++) {
+                        let actualLetter = ALPHABET_CSV[i];
+                        let baseIndex = (i - shift + 26) % 26;
+                        let baseLetter = ALPHABET_CSV[baseIndex];
+                        let coordinateStr = encode_map_base[baseLetter];
+                        
+                        let colChar = coordinateStr.charAt(0);
+                        let rowStr = coordinateStr.substring(2);
+                        let colIdx = cols.indexOf(colChar);
+                        let rowIdx = rows.indexOf(rowStr);
+                        
+                        if (colIdx !== -1 && rowIdx !== -1) { grid[rowIdx][colIdx] = actualLetter; }
+                    }
+                    
+                    for (let r = 0; r < 10; r++) {
+                        let rowArr = [ ` ${rows[r]} ` ]; // Padded spaces for raw text view
+                        for (let c = 0; c < 5; c++) {
+                            let val = grid[r][c] !== "" ? grid[r][c] : noiseChars.charAt(Math.floor(Math.random() * noiseChars.length));
+                            rowArr.push(` ${val} `);
+                        }
+                        csv += rowArr.join(",") + "\n";
+                    }
+                    csv += "\n";
+                }
+                
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = `Agent_Keycards.csv`;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // --- UNIFORMLY ALIGNED HTML PRINT FUNCTION ---
+            window.printKeycards = function() {
+                let agentCount = parseInt(document.getElementById('agentCount').value, 10);
+                if (isNaN(agentCount) || agentCount < 1) agentCount = 1;
+                
+                let html = `<html><head><title>Agent Keycards</title><style>
+                    body { font-family: 'Courier New', Courier, monospace; background: #fff; color: #000; padding: 20px; }
+                    .card { border: 2px solid #000; margin-bottom: 40px; page-break-inside: avoid; max-width: 400px; padding: 20px; }
+                    h2 { font-size: 1.2em; text-align: center; margin-top: 0; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                    th, td { border: 1px solid #000; text-align: center; padding: 10px; font-weight: bold; font-size: 1.1em; }
+                    th { background: #e0e0e0; }
+                </style></head><body>`;
+                
+                for (let a = 1; a <= agentCount; a++) {
+                    let shift = a - 1;
+                    html += `<div class="card"><h2>[AGENT ${String(a).padStart(2, '0')}] DECODER KEY</h2><table>`;
+                    html += `<tr><th>KEY</th><th>∆</th><th>Ω</th><th>Σ</th><th>Ψ</th><th>Φ</th></tr>`;
+                    
+                    let grid = Array.from({length: 10}, () => Array(5).fill(""));
+                    
+                    for (let i = 0; i < 26; i++) {
+                        let actualLetter = ALPHABET_CSV[i];
+                        let baseIndex = (i - shift + 26) % 26;
+                        let baseLetter = ALPHABET_CSV[baseIndex];
+                        let coordinateStr = encode_map_base[baseLetter];
+                        
+                        let colChar = coordinateStr.charAt(0);
+                        let rowStr = coordinateStr.substring(2);
+                        let colIdx = cols.indexOf(colChar);
+                        let rowIdx = rows.indexOf(rowStr);
+                        
+                        if (colIdx !== -1 && rowIdx !== -1) { grid[rowIdx][colIdx] = actualLetter; }
+                    }
+                    
+                    for (let r = 0; r < 10; r++) {
+                        html += `<tr><th>${rows[r]}</th>`;
+                        for (let c = 0; c < 5; c++) {
+                            let val = grid[r][c] !== "" ? grid[r][c] : noiseChars.charAt(Math.floor(Math.random() * noiseChars.length));
+                            html += `<td>${val}</td>`;
+                        }
+                        html += `</tr>`;
+                    }
+                    html += `</table></div>`;
+                }
+                
+                html += `</body></html>`;
+                
+                let printWindow = window.open('', '_blank');
+                printWindow.document.write(html);
+                printWindow.document.close();
+            };
+
         });
     </script>
 </body>
